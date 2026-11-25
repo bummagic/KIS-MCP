@@ -323,8 +323,9 @@ export async function getIndexChart(
       query: {
         fid_cond_mrkt_div_code: alias.mrkt!,
         fid_input_iscd: alias.iscd!,
-        fid_input_date_1: range.startDate,
-        fid_input_date_2: range.endDate,
+        // 이 API는 FID_INPUT_DATE_1 하나만 받아 그 날짜부터 과거로 100건을 돌려준다.
+        // 시작일을 넣으면 요청 기간보다 앞선 자료가 오므로 종료일을 넣고 시작일로 걸러낸다.
+        fid_input_date_1: range.endDate,
         fid_period_div_code: domesticPeriodCode(period),
       },
     });
@@ -332,6 +333,7 @@ export async function getIndexChart(
     const points = items
       .map(itemToDomesticPoint)
       .filter((p): p is ChartPoint => p !== null)
+      .filter((p) => p.date.replace(/-/g, "").slice(0, 8) >= range.startDate)
       .sort((a, b) => a.date.localeCompare(b.date));
     const downsampled = downsample(points, cap);
     return {
@@ -346,8 +348,8 @@ export async function getIndexChart(
       downsampledTo: downsampled.length < points.length ? downsampled.length : undefined,
       points: downsampled,
       source: "kis-domestic",
-      notes: points.length === 100
-        ? ["KIS 응답이 100건 cap에 도달. 더 긴 기간이 필요하면 period=W/M로 호출하세요."]
+      notes: items.length >= 100
+        ? ["KIS 응답이 100건 cap에 도달해 최근 100건 범위만 포함. 더 긴 기간은 1Y(주봉)/3Y(월봉)로 호출하세요."]
         : undefined,
     };
   }
