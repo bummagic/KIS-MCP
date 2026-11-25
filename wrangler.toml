@@ -16,8 +16,8 @@ binding = "KIS_TOKENS"
 # 본인의 Cloudflare 계정에서 생성한 KV 네임스페이스 ID로 교체:
 #   npx wrangler kv namespace create KIS_TOKENS
 #   npx wrangler kv namespace create KIS_TOKENS --preview
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
-preview_id = "REPLACE_WITH_KV_PREVIEW_ID"
+id = "16639df93b454458b10ed81df2d21f09"
+preview_id = "16639df93b454458b10ed81df2d21f09"
 
 [durable_objects]
 bindings = [
