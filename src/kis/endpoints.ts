@@ -242,6 +242,15 @@ export const KIS = {
     path: "/uapi/overseas-futureoption/v1/quotations/inquire-time-futurechartprice",
     trIdReal: "HHDFC55020400",
   },
+  // ─── Domestic index futures (국내 지수선물 시세 — 조회 전용) ───
+  /**
+   * 선물옵션 시세. FID_COND_MRKT_DIV_CODE: F=지수선물, CM=KRX 야간선물.
+   * 응답: output1(futs_prpr 등) + output2/3(기초지수).
+   */
+  domesticFuturesPrice: {
+    path: "/uapi/domestic-futureoption/v1/quotations/inquire-price",
+    trIdReal: "FHMIF10000000",
+  },
 } as const;
 
 export type KisEndpoint = (typeof KIS)[keyof typeof KIS];

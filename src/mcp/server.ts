@@ -32,6 +32,7 @@ import { ping } from "../tools/ping.js";
 import { getIndex, getIndexChart } from "../tools/marketIndex.js";
 import { getFx, getFxChart } from "../tools/fx.js";
 import { getCommodity, getCommodityChart } from "../tools/commodity.js";
+import { getDomesticFutures } from "../tools/domesticFutures.js";
 import { getOverseasStockChart } from "../tools/overseasStock.js";
 import { getOverseasStockInfo } from "../tools/overseasStockInfo.js";
 import { getOverseasStockQuote } from "../tools/overseasStockQuote.js";
@@ -65,6 +66,7 @@ const SERVER_INSTRUCTIONS = `한국투자증권(KIS) OpenAPI 기반 조회 전�
 - 지수 현재값 → get_index ("KOSPI"/"코스피", "KOSDAQ", "KOSPI200", "SPX"/"S&P500", "NASDAQ"/"COMP", "DJI" 등)
 - 지수 시계열 → get_index_chart (period: 1M/3M/6M/1Y/3Y/5Y/YTD/minute. minute는 intervalMinutes 1~60)
 - 환율 → get_fx / get_fx_chart ("USDKRW"/"원달러", "EURKRW", "JPYKRW", "CNYKRW")
+- 국내 지수선물(주간/야간) 현재가 → get_domestic_futures (KOSPI200/KOSDAQ150, session=night이면 KRX 야간선물)
 - 원자재 → get_commodity / get_commodity_chart ("WTI", "BRENT"/"브렌트유", "GOLD"/"금"). 분봉은 선물만 지원
 - **해외 개별주식 현재가** → get_overseas_stock_quote (market=NAS/NYS/... + symbol). OHLC + 52주 + 시총 + 한국어명 모두 포함
 - **해외 개별주식 메타정보** → get_overseas_stock_info (한국어/영문명, 상장정보, ISIN/SEDOL/블룸버그 티커, 종목 분류)
@@ -545,6 +547,28 @@ function registerTools(server: McpServer, client: KisClient, kv: KVNamespace): v
     async (args) => {
       try {
         return jsonContent(await getFxChart(client, args));
+      } catch (err) {
+        return errorContent(err);
+      }
+    },
+  );
+
+  server.tool(
+    "get_domestic_futures",
+    [
+      "국내 지수선물 현재가 (조회 전용). product: KOSPI200(기본)/KOSDAQ150/MINI_KOSPI200.",
+      "session: day(주간, 시장코드 F) / night(KRX 야간선물, 시장코드 CM, 18:00~익일 06:00) / auto(현재 시각 기준, 기본).",
+      "근월물 종목코드는 자동 산출하며 후보 코드를 순서대로 시도한다. code로 직접 지정 가능.",
+      "주문 기능은 없다.",
+    ].join(" "),
+    {
+      product: z.enum(["KOSPI200", "KOSDAQ150", "MINI_KOSPI200"]).optional().describe("기본 KOSPI200"),
+      session: z.enum(["day", "night", "auto"]).optional().describe("기본 auto"),
+      code: z.string().min(5).max(12).optional().describe("종목코드 직접 지정 (예: A01612)"),
+    },
+    async (args) => {
+      try {
+        return jsonContent(await getDomesticFutures(client, args));
       } catch (err) {
         return errorContent(err);
       }
