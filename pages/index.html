@@ -69,10 +69,14 @@ input[type=range]{width:100%}
 .two{display:grid;gap:12px}@media(min-width:640px){.two{grid-template-columns:1fr 1fr}}
 .alert{border-left:4px solid var(--down);background:var(--card);border-radius:10px;padding:10px 12px;margin-bottom:4px;font-size:14px;border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
 dt{font-weight:600;margin-top:10px}dd{margin:2px 0 0;font-size:13.5px;color:var(--sub)}
+html,body{overscroll-behavior-y:contain}
+#ptr{position:fixed;left:0;right:0;top:0;height:0;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;font-size:13px;color:var(--sub);z-index:50;pointer-events:none}
+#ptr span{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 12px;margin-bottom:8px}
+#rf{margin-left:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:2px 10px;font-size:13px;cursor:pointer}
 </style>
 </head>
 <body>
-<header><h1>시황판</h1><div class="meta" id="meta"></div><div class="meta" id="live" style="font-weight:600"></div></header>
+<header><h1>시황판</h1><div class="meta" id="meta"></div><div class="meta"><span id="live" style="font-weight:600"></span><button id="rf" type="button" title="지금 새로고침">↻ 새로고침</button></div></header><div id="ptr"><span>아래로 당기면 새로고침</span></div>
 <nav style="display:none"><div id="tabs"></div></nav>
 <main>
 <section id="market"></section>
@@ -91,7 +95,7 @@ const start=()=>init||(init=(async()=>{const r=await fetch("/mcp",{method:"POST"
 async function once(tool,args){await start();const r=await fetch("/mcp",{method:"POST",headers:hd(),body:JSON.stringify({jsonrpc:"2.0",id:id++,method:"tools/call",params:{name:tool,arguments:args||{}}})});if(!r.ok){const e=new Error("서버 응답 "+r.status);e.status=r.status;throw e}const j=await rd(r);if(j.error)throw new Error(String(j.error.message||"오류").slice(0,200));const c=j.result&&j.result.content&&j.result.content[0],tx=c&&c.text;if(j.result&&j.result.isError)throw new Error(String(tx||"오류").slice(0,200));let payload=null;try{payload=JSON.parse(tx)}catch(e){payload={text:tx}}return{payload,cache:{storedAt:Date.now()}}}
 let act=0;const q=[];const gate=()=>new Promise(r=>{if(act<4){act++;r()}else q.push(r)}),done=()=>{const n=q.shift();if(n)n();else act--};
 async function callTool(srv,tool,args){await gate();try{try{return await once(tool,args)}catch(e){if(e&&(e.status===400||e.status===404)){init=null;sid=null}await new Promise(r=>setTimeout(r,900+Math.random()*600));return await once(tool,args)}}finally{done()}}
-function watchTool(srv,tool,args,h,o){const iv=Math.max(30000,(o&&o.refetchInterval)||30000);const run=async()=>{if(document.hidden)return;try{h({type:"data",result:await callTool(srv,tool,args)})}catch(e){h({type:"error",error:e})}};setTimeout(run,Math.random()*1500);setInterval(run,iv)}
+function watchTool(srv,tool,args,h,o){const iv=Math.max(30000,(o&&o.refetchInterval)||30000);const run=async()=>{if(document.hidden)return;try{h({type:"data",result:await callTool(srv,tool,args)})}catch(e){h({type:"error",error:e})}};(window.__RUNS=window.__RUNS||[]).push(run);setTimeout(run,Math.random()*1500);setInterval(run,iv)}
 const api={callTool,watchTool};window.claude={use:async n=>n==="mcp"?api:null}})();
 </script>
 <script>
@@ -426,6 +430,24 @@ document.addEventListener("click",e=>{if(e.target&&e.target.id==="rfbtn")refresh
 await refreshHoldings(mcp);
 setInterval(()=>{if(!document.hidden)refreshHoldings(mcp)},300000)})();
 window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(h&&h!==cur)show(h)});
+</script>
+<script>
+/* ---- 당겨서 새로고침 · 화면 복귀 시 즉시 갱신 ---- */
+(function(){
+let lastAll=0,busy=false;
+async function refreshAll(why){if(busy)return;const runs=window.__RUNS||[];if(!runs.length)return;busy=true;lastAll=Date.now();const b=document.getElementById("rf");if(b){b.disabled=true;b.textContent="↻ 갱신 중…"}
+try{await Promise.race([Promise.allSettled(runs.map(r=>r())),new Promise(r=>setTimeout(r,15000))])}finally{busy=false;if(b){b.disabled=false;b.textContent="↻ 새로고침"}}}
+window.refreshAll=refreshAll;
+document.getElementById("rf").addEventListener("click",()=>refreshAll("button"));
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&Date.now()-lastAll>10000)refreshAll("visible")});
+window.addEventListener("pageshow",e=>{if(e.persisted)refreshAll("pageshow")});
+const ptr=document.getElementById("ptr"),lab=ptr.firstElementChild,TH=70;let y0=null,dy=0;
+const atTop=()=>(window.scrollY||document.documentElement.scrollTop)<=0;
+const sheetOpen=()=>{const sh=document.querySelector("#sheet");return sh&&sh.style.display&&sh.style.display!=="none"};
+document.addEventListener("touchstart",e=>{if(e.touches.length===1&&atTop()&&!sheetOpen()){y0=e.touches[0].clientY;dy=0}else y0=null},{passive:true});
+document.addEventListener("touchmove",e=>{if(y0==null)return;dy=e.touches[0].clientY-y0;if(dy<=0||!atTop()){ptr.style.height="0";return}const h=Math.min(dy*0.5,90);ptr.style.height=h+"px";lab.textContent=dy>TH?"놓으면 새로고침":"아래로 당기면 새로고침"},{passive:true});
+document.addEventListener("touchend",()=>{if(y0==null)return;const go=dy>TH;y0=null;dy=0;if(go){ptr.style.height="44px";lab.textContent="새로고침 중…";refreshAll("pull").finally(()=>{ptr.style.height="0"})}else ptr.style.height="0"});
+})();
 </script>
 </body>
 </html>
