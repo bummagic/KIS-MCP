@@ -10,6 +10,7 @@
  */
 
 import { KisMcpAgent } from "./mcp/server.js";
+import { BOARD_HTML } from "./board.js";
 import { syncSymbolIndexToKv } from "./utils/symbolIndex.js";
 
 export { KisMcpAgent };
@@ -62,6 +63,20 @@ export default {
 
     if (url.pathname === "/mcp" || url.pathname.startsWith("/mcp/")) {
       return KisMcpAgent.serve("/mcp").fetch(request, env, ctx);
+    }
+
+    if (request.method === "GET" && (url.pathname === "/board" || url.pathname === "/board/")) {
+      return new Response(BOARD_HTML, {
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "no-cache",
+          "x-robots-tag": "noindex, nofollow",
+          "x-content-type-options": "nosniff",
+          "referrer-policy": "no-referrer",
+          "content-security-policy":
+            "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        },
+      });
     }
 
     return new Response("Not found", { status: 404 });
